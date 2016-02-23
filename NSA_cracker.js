@@ -58,14 +58,12 @@ app.listen(NSA_CRACKER_PORT, function(){
     url: String('http://' + NSA_COORDINATOR_IP + ':' + NSA_COORDINATOR_PORT + '/health_check'),
     method: 'GET'
   }, function(err, response, body){
-
     if(err){
       // retry later
     } else {
       // send the status information to register for block processing
       console.log(body)
     }
-
   })
 
 })

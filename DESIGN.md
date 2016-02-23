@@ -75,7 +75,7 @@ Everything is mediated through the Coordinator.  The User panel will post keys a
 
 #### `NSA`
 
-##### nsa coordinator
+##### nsa
 * gets uncracked keys from the coordinator
 * posts search blocks to the workers
 * gets cracked keys from the workers
