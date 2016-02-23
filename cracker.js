@@ -1,63 +1,84 @@
 var bignum = require('bignum')
 
-module.exports = function(opts){
+module.exports = function(){
 
-  var _t = Date.now().valueOf()
-  var _id = opts.id
+  // opts: {
+  //   _id: String,
+  //   begin_index: bignum-string,
+  //   end_index: bignum-string,
+  //   generator: bignum-string,
+  //   prime: bignum-string,
+  //   publickey: bignum-string
+  // }
+
+  // worker state
   var stop
 
-  var crack_index = bignum(opts.begin_index);
-  var end_index = bignum(opts.end_index)
-  var privatekey;
+  var _t, _id
+  var crack_index, end_index
+  var privatekey
 
   var key = {
-    generator: bignum(opts.generator),
-    prime: bignum(opts.prime),
-    publickey: bignum(opts.publickey)
+    generator: '',
+    prime: '',
+    publickey: ''
   }
 
-  var success, report
+  // calbacks
+  var success, report, fail
+
+  function update(opts){
+
+    console.log('opts',opts)
+
+    _t = Date.now().valueOf()
+    _id = opts.id
+    crack_index = bignum(String(opts.begin_index))
+    end_index = bignum(String(opts.end_index))
+    key.generator = bignum(String(opts.generator))
+    key.prime = bignum(String(opts.prime))
+    key.publickey = bignum(String(opts.publickey))
+
+    console.log('key', key)
+
+  }
 
   function start(){
+
     if(stop === true){
       // console.log('aborting cracker', _id)
       return;
 
     } else {
+
+      // if the crack is successful
       if(key.generator.powm(crack_index, key.prime).eq(key.publickey)){
 
-        stop = true
-        privatekey = bignum(crack_index)
+        stop = true // stop the processor
+        privatekey = bignum(crack_index)  // assign the private key
 
-        if(success !== undefined){
+        if(success !== undefined){  // run the callback
           return success(privatekey.toString(), _id, (Date.now().valueOf()-_t)/1000)
         }
 
       } else {
-
         // not cracked, keep going
+
         crack_index = crack_index.add(1)
         if(crack_index.eq(end_index)){
           console.log('worker',_id,'reached limit')
           stop = true
-          return
+          return fail(key.publickey.toString(), (Date.now().valueOf()-_t)/1000)
         }
         if(crack_index.mod(10000).toNumber()===0){
-          // console.log('id', _id, 'status', stop)
           report(_id, crack_index.toString())
         }
         return setImmediate(start)
-        // return process.nextTick(start)
       }
     }
   }
 
   function end(){
-    if(stop === true){
-      // console.log('\t\t\t\t\t\t\talready killed', _id)
-      return;
-    }
-    // console.log('\t\t\t\t\t\t\tkilling cracker', _id)
     stop = true
   }
 
@@ -67,6 +88,7 @@ module.exports = function(opts){
   }
 
   return {
+    update: update,
     begin: begin,
     end: end,
     index: function(new_index){
@@ -74,6 +96,9 @@ module.exports = function(opts){
     },
     success: function(f){
       success = f
+    },
+    fail: function(f){
+      fail = f
     },
     report: function(f){
       report = f

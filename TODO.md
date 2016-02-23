@@ -1,0 +1,1 @@
+* add rates to cracker 

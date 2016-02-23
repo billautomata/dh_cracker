@@ -26,7 +26,7 @@ Everything is mediated through the Coordinator.  The User panel will post keys a
 * connects to the database
 * queries database for un-cracked keys
   * sends results to NSA for processing
-* listens for messages from the NSA 
+* listens for messages from the NSA
 
 #### on-message 'coordination'
 
@@ -76,5 +76,12 @@ Everything is mediated through the Coordinator.  The User panel will post keys a
 #### `NSA`
 
 ##### nsa coordinator
+* gets uncracked keys from the coordinator
+* posts search blocks to the workers
+* gets cracked keys from the workers
+* posts cracked keys to the coordinator
 
 ##### nsa worker
+* get search blocks from nsa coordinator
+* posts completed search blocks to coordinator
+* posts cracked keys to coordinator
