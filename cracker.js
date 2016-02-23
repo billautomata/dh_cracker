@@ -32,7 +32,7 @@ module.exports = function(){
     console.log('opts',opts)
 
     _t = Date.now().valueOf()
-    _id = opts.id
+    _id = opts._id
     crack_index = bignum(String(opts.begin_index))
     end_index = bignum(String(opts.end_index))
     key.generator = bignum(String(opts.generator))
@@ -58,7 +58,7 @@ module.exports = function(){
         privatekey = bignum(crack_index)  // assign the private key
 
         if(success !== undefined){  // run the callback
-          return success(privatekey.toString(), _id, (Date.now().valueOf()-_t)/1000)
+          return success(key.publickey.toString(), privatekey.toString(), _id, (Date.now().valueOf()-_t)/1000)
         }
 
       } else {
@@ -68,7 +68,7 @@ module.exports = function(){
         if(crack_index.eq(end_index)){
           console.log('worker',_id,'reached limit')
           stop = true
-          return fail(key.publickey.toString(), (Date.now().valueOf()-_t)/1000)
+          return fail(_id, key.publickey.toString(), (Date.now().valueOf()-_t)/1000)
         }
         if(crack_index.mod(10000).toNumber()===0){
           report(_id, crack_index.toString())

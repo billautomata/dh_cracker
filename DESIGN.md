@@ -81,6 +81,11 @@ Everything is mediated through the Coordinator.  The User panel will post keys a
 * gets cracked keys from the workers
 * posts cracked keys to the coordinator
 
+###### on message - crack key (g,p,pub)
+* determine the begin_index and end_index
+* split the search space into jobs 
+
+
 ##### nsa worker
 * get search blocks from nsa coordinator
 * posts completed search blocks to coordinator
