@@ -7,23 +7,31 @@ var request = require('request')
 
 var cracker = require('./cracker.js')()
 
+var UUID = crypto.randomBytes(12).toString('hex')
+var NSA_CRACKER_IP = require('./determine_ip.js')()
+var NSA_CRACKER_PORT = Math.floor(Math.random()*10000) + 3000
+var NSA_COORDINATOR_IP = 'localhost'
+var NSA_COORDINATOR_PORT = 3001
+
 cracker.report(function(id, current_index){
   console.log(['progress', id, current_index].join('\t'))
 })
 cracker.success(function(publickey, privatekey, id, seconds){
   console.log(['success!', privatekey, id, seconds].join('\t'))
-  post_success(publickey, privatekey)
-  get_another_job()
+  post_success(publickey, privatekey, get_another_job)
 })
 cracker.fail(function(id, pubkey, seconds){
   console.log(['fail', id, pubkey, seconds].join('\t'))
-  post_fail(id)
-  get_another_job()
+  post_fail(id, get_another_job)
 })
 
-function post_success(pubkey, privatekey){
+function post_success(pubkey, privatekey, cb){
+
+  var url = 'http://' + NSA_COORDINATOR_IP + ':' + NSA_COORDINATOR_PORT
+  url += '/success/' + pubkey + '/' + privatekey
+
   request({
-    url: String('http://' + NSA_COORDINATOR_IP + ':' + NSA_COORDINATOR_PORT + '/success/' + pubkey + '/' + privatekey),
+    url: url,
     method: 'GET'
   }, function(err, response, body){
     if(err){
@@ -31,12 +39,15 @@ function post_success(pubkey, privatekey){
     } else {
       console.log('success posted!')
     }
+    cb()
   })
 }
 
-function post_fail(jobid){
+function post_fail(jobid, cb){
+  var url = 'http://' + NSA_COORDINATOR_IP + ':' + NSA_COORDINATOR_PORT
+  url += '/fail/' + jobid
   request({
-    url: String('http://' + NSA_COORDINATOR_IP + ':' + NSA_COORDINATOR_PORT + '/fail/' + jobid),
+    url: url,
     method: 'GET'
   }, function(err, response, body){
     if(err){
@@ -44,6 +55,7 @@ function post_fail(jobid){
     } else {
       console.log('fail posted!')
     }
+    cb()
   })
 }
 
@@ -75,18 +87,14 @@ function get_another_job(){
   })
 }
 
-var UUID = crypto.randomBytes(12).toString('hex')
-var NSA_CRACKER_IP = 'localhost'
-var NSA_CRACKER_PORT = 3000
-var NSA_COORDINATOR_IP = 'localhost'
-var NSA_COORDINATOR_PORT = 3001
 
 // setup server to parse json
 app.use(bodyparser.json())
 
 // setup routes
 app.get('/health_check', function(req,res){
-  res.status(200).json({status: 'ok', uuid: UUID})
+  console.log(cracker.status())
+  res.status(200).json({status: cracker.status().status, uuid: UUID})
 })
 
 app.get('/newjob', function(req,res){
@@ -94,31 +102,31 @@ app.get('/newjob', function(req,res){
   res.status(200).json({status: 'ok', uuid: UUID})
 })
 
-app.get('/blocks/:g/:p/:publickey/:begin_index/:end_index', function(req, res){
-
-  console.log('got block to process')
-  console.log(req.params)
-
-  cracker.update({
-    _id: UUID,
-    begin_index: req.params.begin_index,
-    end_index: req.params.end_index,
-    generator: req.params.g,
-    prime: req.params.p,
-    publickey: req.params.publickey,
-  })
-  cracker.begin()
-
-  res.status(200).json({status: 'ok'})
-
-})
+// app.get('/blocks/:g/:p/:publickey/:begin_index/:end_index', function(req, res){
+//
+//   console.log('got block to process')
+//   console.log(req.params)
+//
+//   cracker.update({
+//     _id: UUID,
+//     begin_index: req.params.begin_index,
+//     end_index: req.params.end_index,
+//     generator: req.params.g,
+//     prime: req.params.p,
+//     publickey: req.params.publickey,
+//   })
+//   cracker.begin()
+//
+//   res.status(200).json({status: 'ok'})
+//
+// })
 
 // start the server
 app.listen(NSA_CRACKER_PORT, function(){
   console.log('cracker is booted up -- ' + UUID)
 
   request({
-    url: String('http://' + NSA_COORDINATOR_IP + ':' + NSA_COORDINATOR_PORT + '/health_check'),
+    url: String('http://' + NSA_COORDINATOR_IP + ':' + NSA_COORDINATOR_PORT + '/register/' + NSA_CRACKER_IP + '/' + NSA_CRACKER_PORT + '/' + UUID),
     method: 'GET'
   }, function(err, response, body){
     if(err){

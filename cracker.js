@@ -24,6 +24,11 @@ module.exports = function(){
     publickey: ''
   }
 
+  var status_object = {
+    status: 'idle',
+    rate: 1000
+  }
+
   // calbacks
   var success, report, fail
 
@@ -55,6 +60,7 @@ module.exports = function(){
       if(key.generator.powm(crack_index, key.prime).eq(key.publickey)){
 
         stop = true // stop the processor
+        status_object.status = 'idle'
         privatekey = bignum(crack_index)  // assign the private key
 
         if(success !== undefined){  // run the callback
@@ -68,6 +74,7 @@ module.exports = function(){
         if(crack_index.eq(end_index)){
           console.log('worker',_id,'reached limit')
           stop = true
+          status_object.status = 'idle'
           return fail(_id, key.publickey.toString(), (Date.now().valueOf()-_t)/1000)
         }
         if(crack_index.mod(10000).toNumber()===0){
@@ -79,11 +86,13 @@ module.exports = function(){
   }
 
   function end(){
+    status_object.status = 'idle'
     stop = true
   }
 
   function begin(){
     stop = false
+    status_object.status = 'busy'
     start()
   }
 
@@ -102,6 +111,9 @@ module.exports = function(){
     },
     report: function(f){
       report = f
+    },
+    status: function(){
+      return status_object
     }
   }
 

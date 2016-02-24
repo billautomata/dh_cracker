@@ -1,4 +1,4 @@
-var app = require('express')()
+var express = require('express')
 var bignum = require('bignum')
 var bodyparser = require('body-parser')
 var crypto = require('crypto')
@@ -9,15 +9,52 @@ var mongojs = require('mongojs')
 var db = mongojs('dh_cracker', ['jobs', 'keys'])
 
 var UUID = crypto.randomBytes(12).toString('hex')
-var NSA_CRACKER_IP = 'localhost'
-var NSA_CRACKER_PORT = 3000
-var NSA_COORDINATOR_IP = 'localhost'
+var NSA_COORDINATOR_IP = require('./determine_ip.js')()
 var NSA_COORDINATOR_PORT = 3001
+
+var current_workers = []
+var workers_polling = setInterval(function(){
+  current_workers.forEach(function(worker){
+    var url = 'http://' + worker.ip + ':' + worker.port + '/health_check'
+
+    request({
+      url: url,
+      method: 'GET'
+    }, function(err, response, body){
+      if(err){
+        // retry later
+        console.log(err)
+        console.log('killing worker', worker)
+        worker.kill = true
+      } else {
+        // send the status information to register for block processing
+        body = JSON.parse(body)
+
+        // update status
+        current_workers.forEach(function(worker){
+          if(body.uuid === worker.uuid){
+            worker.status = body.status
+          }
+        })
+        console.log(body)
+      }
+    })
+  })
+  // remove dead workers
+  var n = current_workers.length
+  current_workers = current_workers.filter(function(w){return (w.kill===undefined)})
+  if(current_workers.length < n){
+    console.log('removed workers ', n-current_workers.length)
+  }
+},1000)
+
+var app = express()
 
 // setup server to parse json
 app.use(bodyparser.json())
 
 app.get('/crack/:bit_depth', function(req,res){
+
   var alice = crypto.createDiffieHellman(Number(req.params.bit_depth))
   alice.generateKeys()
 
@@ -70,17 +107,22 @@ app.get('/crack/:bit_depth', function(req,res){
   // url += begin_index.toString() + '/'
   // url += end_index.toString()
 
-  var url = 'http://' + NSA_CRACKER_IP + ':' + NSA_CRACKER_PORT + '/newjob'
+  current_workers.forEach(function(worker){
+    console.log(worker)
+    if(worker.status === 'idle'){
+      var url = 'http://' + worker.ip + ':' + worker.port + '/newjob'
 
-  request({
-    url: url,
-    method: 'GET'
-  }, function(err, response, body){
-    if(err){
-      // retry later
-    } else {
-      // send the status information to register for block processing
-      console.log(body)
+      request({
+        url: url,
+        method: 'GET'
+      }, function(err, response, body){
+        if(err){
+          // retry later
+        } else {
+          // send the status information to register for block processing
+          console.log(body)
+        }
+      })
     }
   })
   res.status(200).json({status:'ok'})
@@ -103,7 +145,7 @@ app.get('/job', function(req,res){
         console.log(doc)
         db.jobs.findAndModify({
           query:{_id: doc._id},
-          update:{ $set: { started: 1 }}},
+          update:{ $set: { started: Date.now().valueOf() }}},
           function(err,d){
             res.status(200).json(doc)
           }
@@ -149,6 +191,23 @@ app.get('/fail/:jobid', function(req, res){
     }
   )
 })
+
+app.get('/register/:ip/:port/:uuid', function(req,res){
+
+  console.log('got registration')
+
+  var worker = {
+    ip: req.params.ip,
+    port: req.params.port,
+    uuid: req.params.uuid
+  }
+  console.log(worker)
+  current_workers.push(worker)
+
+  res.status(200).json({status:'ok'})
+})
+
+app.use(express.static('public'))
 
 // start the server
 app.listen(NSA_COORDINATOR_PORT, function(){
